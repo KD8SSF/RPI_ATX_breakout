@@ -67,7 +67,7 @@ void loop () {
   switch (STATUS) {
                                             //Standby mode, watching for button press to turn on the PSU
     case 1:                
-      if (buttonState == HIGH) {
+      if (buttonState == LOW) {
         digitalWrite(STDBYLED, LOW);
         digitalWrite(PWRONLED, HIGH);
         digitalWrite(CasePowerLED, HIGH);
@@ -75,7 +75,7 @@ void loop () {
         STATUS = 2;
         }
       else {
-        if (buttonState == LOW) {
+        if (buttonState == HIGH) {
            digitalWrite(STDBYLED, HIGH);
            STATUS = 1;
           } 
@@ -83,7 +83,7 @@ void loop () {
         break;
                                             //PSU-ON, watching for long press (4+ seconds) on the case switch to turn the PSU off
     case 2:
-      if (buttonState == HIGH && (millis() - btnDwnTime) > long(holdTime)) {
+      if (buttonState == LOW && (millis() - btnDwnTime) > long(holdTime)) {
         digitalWrite(PWRONLED, LOW);
         digitalWrite(PWROFFLED, HIGH);
         digitalWrite(RPISD, HIGH);  
@@ -91,7 +91,7 @@ void loop () {
         long btnDwnTime = 0;
         }
       else {
-        if (buttonState == LOW) {
+        if (buttonState == HIGH) {
           digitalWrite(PWRONLED, HIGH);
           STATUS = 2;
           }
