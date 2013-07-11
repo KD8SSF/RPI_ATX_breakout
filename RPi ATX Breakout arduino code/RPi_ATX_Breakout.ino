@@ -25,8 +25,6 @@
 */
 
 
-#define holdTime 4000       //button-hold interval for shutdown
-
 // Pin assignments
 const int CaseSwitch = 2;   //PC case power switch
 const int CasePowerLED = 3; //PC case Power LED
@@ -41,12 +39,14 @@ const int HALTOK = 9;       //input from RPi on good shutdown
 
 
 // Variables
-int STATUS = 1;             //track STDBY/PWRON/PWROFF modes
-int buttonState = 0;        //state of the Case switch
-long int btnDwnTime;        //when the switch was pressed
+int STATUS = 0;             //track STDBY/PWRON/PWROFF modes
+int buttonState = 1;        //state of the Case switch
+int button_delay = 0;        //how many seconds the button has been held down
+int psStatus = 0;           //is the PSU on?
 
 void setup () {
-  pinMode(CaseSwitch, INPUT);
+  //Serial.begin(9600);
+  pinMode(CaseSwitch, INPUT);                //setup pin modes
   pinMode(CasePowerLED, OUTPUT);
   pinMode(CaseHDDLED, OUTPUT);
   pinMode(STDBYLED, OUTPUT);
@@ -55,65 +55,72 @@ void setup () {
   pinMode(PSON, OUTPUT);
   pinMode(RPISD, OUTPUT);
   pinMode(HALTOK, INPUT);
+  digitalWrite(PSON, HIGH);                  //set initial pin values
+  digitalWrite(CasePowerLED, LOW);
+  digitalWrite(CaseHDDLED, LOW);
+  digitalWrite(STDBYLED, HIGH);
+  digitalWrite(PWRONLED, LOW);
+  digitalWrite(PWROFFLED, LOW);
+  digitalWrite(RPISD, LOW);
+  //Serial.println("Setup complete,starting loop");
 }
 
 void loop () {
+  //Serial.println("Running Loop");
+  //Serial.println(psStatus);
+  
   buttonState = digitalRead(CaseSwitch);    //read the switch at the start of the loop
   
-  if (buttonState == HIGH && STATUS == 2) { //store the button press time if power supply is on and button pressed 
-        static long btnDwnTime = millis();
-  }
-  
-  switch (STATUS) {
-                                            //Standby mode, watching for button press to turn on the PSU
-    case 1:                
-      if (buttonState == LOW) {
-        digitalWrite(STDBYLED, LOW);
-        digitalWrite(PWRONLED, HIGH);
-        digitalWrite(CasePowerLED, HIGH);
-        digitalWrite(PSON, LOW);
-        STATUS = 2;
-        }
-      else {
-        if (buttonState == HIGH) {
-           digitalWrite(STDBYLED, HIGH);
-           STATUS = 1;
-          } 
-        }
-        break;
-                                            //PSU-ON, watching for long press (4+ seconds) on the case switch to turn the PSU off
-    case 2:
-      if (buttonState == LOW && (millis() - btnDwnTime) > long(holdTime)) {
+  while (buttonState == LOW) {
+    //Serial.println("Button pressed!");
+    button_delay++;
+    //Serial.println(button_delay);
+    delay(100);
+    buttonState = digitalRead(CaseSwitch);
+    
+    if(button_delay >= 4) {
+        //Serial.println("Sending shut-down signal to Pi, STATUS = 1");
         digitalWrite(PWRONLED, LOW);
         digitalWrite(PWROFFLED, HIGH);
-        digitalWrite(RPISD, HIGH);  
-        STATUS = 3;
-        long btnDwnTime = 0;
+        digitalWrite(RPISD, HIGH);
+        STATUS = 1;
+      }
+    else
+    
+        if(button_delay == 2  && psStatus == 0) {
+         //Serial.println("Turning PSU on");
+         digitalWrite(STDBYLED, LOW);
+         digitalWrite(PWRONLED, HIGH);
+         digitalWrite(CasePowerLED, HIGH);
+         digitalWrite(PSON, LOW);
+         psStatus = 1;
+         button_delay = 0;
+         break; 
         }
-      else {
-        if (buttonState == HIGH) {
-          digitalWrite(PWRONLED, HIGH);
-          STATUS = 2;
-          }
-        }
-        break;
-                                            //PSU-OFF, waiting for the RPi to signal that it has halted
-    case 3:                
+  }
+  
+  switch (STATUS) {                          //PSU-OFF, waiting for the RPi to signal that it has halted
+                                            
+    case 1:                
       if (digitalRead(HALTOK) == LOW) {
+        //Serial.println("Halt-OK, PSU off, STATUS = 0");
         delay(5000);                        //wait five seconds for the RPi to finish shutdown
         digitalWrite(PWROFFLED, LOW);
         digitalWrite(CasePowerLED, LOW);
         digitalWrite(PSON, HIGH);
         digitalWrite(STDBYLED, HIGH);
-        long btnDwnTime = 0;
-        STATUS = 1;
+        digitalWrite(RPISD, LOW);
+        psStatus = 0;
+        button_delay = 0;
+        STATUS = 0;
       }
       else {
         if (digitalRead(HALTOK) == HIGH) {   //blink the case "HDD activity" LED while waiting on the RPi HALT-OK signal
+          //Serial.println("Waiting on Halt-OK, STATUS = 1");
           digitalWrite(CaseHDDLED, HIGH);
-          delay(50);
+          delay(10);
           digitalWrite(CaseHDDLED, LOW);
-          STATUS = 3;
+          STATUS = 1;
         }  
       }
         break;
