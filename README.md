@@ -1,4 +1,4 @@
-RPI_ATX_breakout
+ATX-Pi
 ================
 
 Power your Raspberry Pi from any standard ATX power supply!
